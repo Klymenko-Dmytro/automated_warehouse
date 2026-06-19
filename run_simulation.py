@@ -4,74 +4,150 @@ import time
 import random
 import django
 
+# Налаштування оточення Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'automated_warehouse.settings')
 django.setup()
 
 from warehouse.models import Cell, Product, WarehouseLog
 
-# Списки для генерації випадкових товарів
-PRODUCT_NAMES = ['Молоко "Ферма" 2.5%', 'Хліб "Тостовий"', 'Сік "Садочок" Яблуко', 'Кава Jacobs Monarch',
-                 'Чай Greenfield', 'Шоколад Roshen']
-
-
-def generate_barcode():
-    return "".join([str(random.randint(0, 9)) for _ in range(13)])
+# Жорстко фіксуємо 10 товарів з постійними штрихкодами для презентації проекту
+PREDEFINED_PRODUCTS = [
+    {"name": 'Молоко "Ферма" 2.5%', "barcode": "4820012345011"},
+    {"name": 'Хліб "Тостовий"', "barcode": "4820012345028"},
+    {"name": 'Сік "Садочок" Яблуко', "barcode": "4820012345035"},
+    {"name": 'Кава Jacobs Monarch', "barcode": "4820012345042"},
+    {"name": 'Чай Greenfield', "barcode": "4820012345059"},
+    {"name": 'Шоколад Roshen', "barcode": "4820012345066"},
+    {"name": 'Вода "Моршинська"', "barcode": "4820012345073"},
+    {"name": 'Печиво "Марія"', "barcode": "4820012345080"},
+    {"name": 'Олія "Щедрий Дар"', "barcode": "4820012345097"},
+    {"name": 'Цукор "Гайсин"', "barcode": "4820012345103"},
+]
 
 
 def simulate_warehouse():
-    print("=== Симуляцію складу ЗАПУЩЕНО. Натисніть Ctrl+C для зупинки ===")
+    print("=== СИМУЛЯТОР ОНОВЛЕНО. Фіксовані штрихкоди. Захист від змішування товарів. ===")
+    MAKS_MISKIST = 100
 
     while True:
         try:
-            # Випадково вирішуємо: додати товар (70% шанс) чи видалити (30% шанс)
+            # Випадково обираємо дію: 75% шанс на додавання, 25% на вилучення
             action = random.choice(['ADD', 'ADD', 'ADD', 'REMOVE'])
 
             if action == 'ADD':
-                # Шукаємо першу ліпшу вільну комірку
-                free_cell = Cell.objects.filter(is_occupied=False).first()
+                кількість_до_додавання = random.randint(1, 300)
+                обраний_товар = random.choice(PREDEFINED_PRODUCTS)
+                name = обраний_товар["name"]
+                barcode = обраний_товар["barcode"]
 
-                if free_cell:
-                    name = random.choice(PRODUCT_NAMES)
-                    barcode = generate_barcode()
+                залишок_для_розміщення = кількість_до_додавання
+                інформація_про_розміщення = []
 
-                    # Створюємо товар і прив'язуємо до комірки
-                    product = Product.objects.create(name=name, barcode=barcode, cell=free_cell)
+                # Крок 1: Шукаємо комірки, де ВЖЕ лежить цей конкретний товар і є вільне місце
+                частково_заповнені_комірки = Cell.objects.filter(
+                    is_occupied=False,
+                    products__barcode=barcode
+                ).distinct().order_by('zone', 'row', 'shelf', 'position')
 
-                    # Позначаємо комірку як зайняту
-                    free_cell.is_occupied = True
-                    free_cell.save()
+                # Крок 2: Шукаємо абсолютно порожні комірки (де взагалі немає жодного товару)
+                порожні_комірки = Cell.objects.filter(
+                    is_occupied=False,
+                    products__isnull=True
+                ).order_by('zone', 'row', 'shelf', 'position')
 
-                    # Формуємо повідомлення для логу
-                    msg = f"Додано на склад: {product.name} ({product.barcode}) за адресою: Зона {free_cell.zone}, Ряд {free_cell.row}, Пол. {free_cell.shelf}, Місце {free_cell.position}"
+                # Об'єднуємо списки: спочатку досипаємо в існуючі комірки з цим товаром, потім у нові порожні
+                доступні_комірки = list(частково_заповнені_комірки) + list(порожні_комірки)
+
+                if not доступні_комірки and залишок_для_розміщення > 0:
+                    print(f"Склад переповнений! Немає місця для розміщення товару: {name}.")
+                    time.sleep(4)
+                    continue
+
+                for комірка in доступні_комірки:
+                    if залишок_для_розміщення <= 0:
+                        break
+
+                    # Перевіряємо, чи не зайняв цю комірку інший товар, поки ми йшли по циклу
+                    існуючий_товар = комірка.products.first()
+                    if існуючий_товар and існуючий_товар.barcode != barcode:
+                        continue  # Пропускаємо комірку, тут лежить чужий товар!
+
+                    поточна_кількість = sum(p.quantity for p in комірка.products.all())
+                    вільне_місце = MAKS_MISKIST - поточна_кількість
+
+                    if вільне_місце > 0:
+                        кількість_до_запису = min(залишок_для_розміщення, вільне_місце)
+
+                        if існуючий_товар:
+                            # Якщо такий товар тут уже є, просто збільшуємо кількість в існуючому записі
+                            існуючий_товар.quantity += кількість_до_запису
+                            існуючий_товар.save()
+                        else:
+                            # Якщо комірка була абсолютно порожньою, створюємо новий запис товару
+                            Product.objects.create(name=name, barcode=barcode, cell=комірка,
+                                                   quantity=кількість_до_запису)
+
+                        залишок_для_розміщення -= кількість_до_запису
+                        інформація_про_розміщення.append(
+                            f"{кількість_до_запису} шт. -> {комірка.zone}-Р{комірка.row}-П{комірка.shelf}-М{комірка.position}")
+
+                        # Якщо комірка заповнилася на максимум (100 шт), міняємо її статус
+                        if (поточна_кількість + кількість_до_запису) >= MAKS_MISKIST:
+                            комірка.is_occupied = True
+                            комірка.save()
+
+                if len(інформація_про_розміщення) > 0:
+                    msg = f"Симулятор додав: {name} ({barcode}), всього {кількість_до_додавання - залишок_для_розміщення} шт. Розподілено: {', '.join(інформація_про_розміщення)}"
+                    if залишок_для_розміщення > 0:
+                        msg += f" | НЕ ВМІСТИЛОСЯ на складі: {залишок_для_розміщення} шт.!"
+
                     WarehouseLog.objects.create(action_type='ADD', message=msg)
                     print(msg)
-                else:
-                    print("Склад повний! Немає вільних комірок.")
 
             elif action == 'REMOVE':
-                # Беремо випадковий товар, який зараз є на складі
-                product_to_remove = Product.objects.order_by('?').first()
+                # Отримуємо випадковий товар, який зараз фізично є на складі
+                випадковий_товар = Product.objects.order_by('?').first()
+                if випадковий_товар:
+                    barcode = випадковий_товар.barcode
+                    name = випадковий_товар.name
 
-                if product_to_remove:
-                    cell = product_to_remove.cell
+                    # Рахуємо загальну кількість цього товару на всьому складі
+                    загалом_в_наявності = sum(p.quantity for p in Product.objects.filter(barcode=barcode))
+                    кількість_для_вилучення = random.randint(1, min(150, загалом_в_наявності))
 
-                    # Звільняємо комірку
-                    if cell:
-                        cell.is_occupied = False
-                        cell.save()
+                    список_товарів = Product.objects.filter(barcode=barcode).order_by('cell__zone', 'cell__row')
+                    залишок_для_вилучення = кількість_для_вилучення
+                    деталі_вилучення = []
 
-                    msg = f"Вилучено зі складу: {product_to_remove.name} ({product_to_remove.barcode}) з адреси: Зона {cell.zone}, Ряд {cell.row}, Пол. {cell.shelf}, Місце {cell.position}"
+                    for товар_в_комірці in список_товарів:
+                        if залишок_для_вилучення <= 0:
+                            break
+                        комірка = товар_в_комірці.cell
+
+                        if товар_в_комірці.quantity <= залишок_для_вилучення:
+                            # Якщо в комірці менше або рівно стільки, скільки треба вилучити, видаляємо запис повністю
+                            залишок_для_вилучення -= товар_в_комірці.quantity
+                            деталі_вилучення.append(f"{товар_в_комірці.quantity} шт. з [{комірка}]")
+                            товар_в_комірці.delete()
+                        else:
+                            # Якщо в комірці більше товару, ніж потрібно вилучити, просто зменшуємо кількість
+                            товар_в_комірці.quantity -= залишок_для_вилучення
+                            деталі_вилучення.append(f"{залишок_для_вилучення} шт. з [{комірка}]")
+                            товар_в_комірці.save()
+                            залишок_для_вилучення = 0
+
+                        # Оскільки товар з комірки зменшився або зник, вона точно більше не заповнена на 100%
+                        if комірка:
+                            комірка.is_occupied = False
+                            комірка.save()
+
+                    msg = f"Симулятор вилучив: {name} ({barcode}), всього {кількість_для_вилучення} шт. Деталі: {', '.join(деталі_вилучення)}"
                     WarehouseLog.objects.create(action_type='REMOVE', message=msg)
                     print(msg)
-
-                    # Видаляємо товар з бази
-                    product_to_remove.delete()
                 else:
-                    print("Склад пустий, нічого вилучати.")
+                    print("Склад порожній, нічого вилучати.")
 
-            # Чекаємо 4 секунди перед наступною дією
             time.sleep(4)
-
         except KeyboardInterrupt:
             print("\n=== Симуляцію зупинено ===")
             sys.exit()

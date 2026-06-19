@@ -1,207 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
     <title>Automated Warehouse - 2D Map & Control</title>
-    <style>
-        :root {
-            --bg-color: #f1f3f6;
-            --panel-bg: #ffffff;
-            --text-color: #2c3e50;
-            --primary: #3498db;
-            --success: #2ecc71;
-            --danger: #e74c3c;
-            --warning: #f1c40f;
-            --border-color: #bdc3c7;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 15px;
-        }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: var(--panel-bg);
-            padding: 10px 25px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            margin-bottom: 15px;
-        }
-
-        h1 { margin: 0; font-size: 20px; }
-
-        .search-form { display: flex; gap: 8px; }
-        .search-input {
-            padding: 6px 12px;
-            width: 250px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .search-btn {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 6px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .clear-btn {
-            background-color: #95a5a6;
-            color: white;
-            text-decoration: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-        }
-
-        /* ТРИКОЛОННИЙ ІНТЕРФЕЙС */
-        .main-container {
-            display: grid;
-            grid-template-columns: 1fr 280px 280px;
-            gap: 15px;
-            height: calc(100vh - 85px);
-        }
-
-        .warehouse-panel, .control-panel, .log-panel {
-            background: var(--panel-bg);
-            border-radius: 6px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .panel-title { margin-top: 0; margin-bottom: 10px; font-size: 15px; border-bottom: 2px solid var(--bg-color); padding-bottom: 5px; }
-
-        /* КАРТА СКЛАДУ */
-        .warehouse-map {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            overflow: auto;
-            flex-grow: 1;
-            align-content: flex-start;
-            padding: 10px;
-            background: #fafafa;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-        }
-
-        .zone-block {
-            background: #ffffff;
-            border: 2px dashed #95a5a6;
-            border-radius: 6px;
-            padding: 10px;
-        }
-        .zone-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; color: #7f8c8d; text-transform: uppercase; }
-        .rows-container { display: flex; flex-direction: column; gap: 15px; }
-        .row-block { display: flex; flex-direction: column; gap: 3px; background: #fdfdfd; padding: 4px; border-radius: 4px; }
-        .shelf-block { display: flex; gap: 0; }
-
-        /* МІНІ-КОМІРКА */
-        .cell {
-            width: 16px;
-            height: 16px;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            box-sizing: border-box;
-            transition: all 0.2s ease;
-            position: relative;
-            cursor: pointer;
-        }
-        .cell.free { background-color: var(--success); }
-        .cell.occupied { background-color: #95a5a6; }
-        .cell.highlighted {
-            background-color: var(--warning) !important;
-            box-shadow: 0 0 12px 4px var(--warning);
-            transform: scale(1.4);
-            z-index: 5;
-            border: 1px solid #000;
-        }
-        /* Колір активної вибраної мишкою комірки */
-        .cell.selected {
-            border: 2px solid #000 !important;
-            transform: scale(1.3);
-            z-index: 4;
-            box-shadow: 0 0 8px rgba(0,0,0,0.5);
-        }
-
-        /* ТУЛТИП */
-        .cell .tooltip {
-            visibility: hidden;
-            width: 160px;
-            background-color: #2c3e50;
-            color: #fff;
-            border-radius: 4px;
-            padding: 6px;
-            position: absolute;
-            z-index: 100;
-            bottom: 130%;
-            left: 50%;
-            transform: translateX(-50%);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            font-size: 10px;
-            opacity: 0;
-            transition: opacity 0.15s;
-            pointer-events: none;
-        }
-        .cell:hover .tooltip { visibility: visible; opacity: 1; }
-
-        /* ПАНЕЛЬ КЕРУВАННЯ СТИЛІ */
-        .control-placeholder { color: #7f8c8d; font-style: italic; font-size: 13px; text-align: center; margin-top: 50px; }
-        .info-group { margin-bottom: 12px; font-size: 13px; }
-        .info-label { font-weight: bold; color: #7f8c8d; }
-        .control-input {
-            width: 100%;
-            padding: 6px;
-            margin-top: 4px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 13px;
-        }
-        .btn-action {
-            width: 100%;
-            border: none;
-            padding: 8px;
-            color: white;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 13px;
-        }
-        .btn-add { background-color: var(--success); }
-        .btn-remove { background-color: var(--danger); }
-        .msg-box { font-size: 12px; margin-top: 8px; font-weight: bold; }
-
-        /* ЛОГ ПАНЕЛЬ */
-        .log-box {
-            flex-grow: 1;
-            overflow-y: auto;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            font-family: 'Courier New', Courier, monospace;
-            padding: 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            line-height: 1.4;
-        }
-        .log-line { margin-bottom: 6px; border-bottom: 1px solid #2d2d2d; padding-bottom: 3px; }
-        .log-add { color: #4ec9b0; }
-        .log-remove { color: #ce9178; }
-
-        .error-msg { color: var(--danger); font-weight: bold; margin-bottom: 10px; font-size: 14px; }
-    </style>
+    <!-- Підключаємо наш винесений файл стилів -->
+    <link rel="stylesheet" href="{% static 'warehouse/style.css' %}">
 </head>
 <body>
 
@@ -210,9 +14,7 @@
         <form class="search-form" method="GET" action="">
             <input type="text" name="q" class="search-input" placeholder="Назва товару або штрихкод..." value="{{ query }}">
             <button type="submit" class="search-btn">Знайти</button>
-            {% if query %}
-                <a href="/" class="clear-btn">Скинути</a>
-            {% endif %}
+            {% if query %} <a href="/" class="clear-btn">Скинути</a> {% endif %}
         </form>
     </header>
 
@@ -221,7 +23,7 @@
     {% endif %}
 
     <div class="main-container">
-      <!-- 1. КАРТА СКЛАДУ -->
+        <!-- 1. КАРТА СКЛАДУ -->
         <div class="warehouse-panel">
             <h2 class="panel-title">План розміщення (Топологія)</h2>
             <div class="warehouse-map" id="warehouseMap">
@@ -242,15 +44,9 @@
                                                      data-shelf="{{ cell.shelf }}"
                                                      data-pos="{{ cell.position }}"
                                                      onclick="selectCell(this)">
-
                                                     <div class="tooltip">
                                                         <strong>Адреса:</strong> {{ cell.zone }}-Р{{ cell.row }}-П{{ cell.shelf }}-М{{ cell.position }}<br>
-                                                        {% if cell.is_occupied and cell.product %}
-                                                            <strong>Товар:</strong> {{ cell.product.name }}<br>
-                                                            <strong>Баркод:</strong> {{ cell.product.barcode }}
-                                                        {% else %}
-                                                            <span style="color: #2ecc71;">Вільна комірка</span>
-                                                        {% endif %}
+                                                        <span style="color: #2ecc71;">Завантаження...</span>
                                                     </div>
                                                 </div>
                                             {% endfor %}
@@ -283,179 +79,13 @@
                 {% endfor %}
             </div>
         </div>
-    </div> <!-- Закриття .main-container -->
+    </div>
 
-    <!-- СКРИПТИ ДЛЯ LIVE-ОНОВЛЕННЯ ТА КЕРУВАННЯ -->
+    <!-- Передаємо ID підсвіченої комірки з пошуку в JS область глобальних змінних -->
     <script>
-        const highlightedCellId = "{{ highlighted_cell_id|default:'null' }}";
-        let selectedCellElement = null;
-        let globalCellsData = []; // Масив для актуального стану складу
-
-        // Функція вибору комірки мишкою
-        function selectCell(element) {
-            if (selectedCellElement) {
-                selectedCellElement.classList.remove('selected');
-            }
-            selectedCellElement = element;
-            selectedCellElement.classList.add('selected');
-
-            const cellId = element.getAttribute('data-id');
-            renderControlPanel(cellId);
-        }
-
-        // Рендеринг вмісту центральної панелі
-        function renderControlPanel(cellId) {
-            const cellData = globalCellsData.find(c => c.id == cellId);
-            const panelContent = document.getElementById('panelContent');
-
-            if (!cellData) return;
-
-            const addressStr = `Зона ${cellData.zone}, Ряд ${cellData.row}, Полиця ${cellData.shelf}, Місце ${cellData.position}`;
-
-            if (cellData.is_occupied) {
-                const prodName = cellData.product ? cellData.product.name : 'Невідомо';
-                const prodBarcode = cellData.product ? cellData.product.barcode : '-';
-
-                panelContent.innerHTML = `
-                    <div class="info-group"><span class="info-label">Обрана адреса:</span><br>${addressStr}</div>
-                    <div class="info-group"><span class="info-label">Статус:</span> <span style="color:var(--danger)">ЗАЙНЯТО</span></div>
-                    <div class="info-group"><span class="info-label">Назва товару:</span><br><strong>${prodName}</strong></div>
-                    <div class="info-group"><span class="info-label">Штрихкод:</span><br><code>${prodBarcode}</code></div>
-                    <button class="btn-action btn-remove" onclick="manualRemove(${cellId})">Вилучити зі складу</button>
-                    <div id="actionMsg" class="msg-box"></div>
-                `;
-            } else {
-                panelContent.innerHTML = `
-                    <div class="info-group"><span class="info-label">Обрана адреса:</span><br>${addressStr}</div>
-                    <div class="info-group"><span class="info-label">Статус:</span> <span style="color:var(--success)">ВІЛЬНА</span></div>
-
-                    <div class="info-group">
-                        <label class="info-label">Назва товару:</label>
-                        <input type="text" id="manualName" class="control-input" placeholder="Наприклад: Сік Апельсин">
-                    </div>
-                    <div class="info-group">
-                        <label class="info-label">Штрихкод:</label>
-                        <input type="text" id="manualBarcode" class="control-input" placeholder="13 цифр">
-                    </div>
-                    <button class="btn-action btn-add" onclick="manualAdd(${cellId})">Розмістити товар</button>
-                    <div id="actionMsg" class="msg-box"></div>
-                `;
-            }
-        }
-
-        // Надсилання запиту на додавання
-        function manualAdd(cellId) {
-            const name = document.getElementById('manualName').value;
-            const barcode = document.getElementById('manualBarcode').value;
-            const msgBox = document.getElementById('actionMsg');
-
-            fetch('/api/manual-add/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cell_id: cellId, name: name, barcode: barcode })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    msgBox.style.color = 'var(--success)';
-                    msgBox.innerText = data.message;
-                    updateWarehouseData();
-                } else {
-                    msgBox.style.color = 'var(--danger)';
-                    msgBox.innerText = data.message;
-                }
-            });
-        }
-
-        // Надсилання запиту на вилучення
-        function manualRemove(cellId) {
-            const msgBox = document.getElementById('actionMsg');
-
-            fetch('/api/manual-remove/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cell_id: cellId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    msgBox.style.color = 'var(--success)';
-                    msgBox.innerText = data.message;
-                    updateWarehouseData();
-                } else {
-                    msgBox.style.color = 'var(--danger)';
-                    msgBox.innerText = data.message;
-                }
-            });
-        }
-
-        // Автооновлення кожні 3 секунди
-        function updateWarehouseData() {
-            fetch('/api/data/')
-                .then(response => response.json())
-                .then(data => {
-                    globalCellsData = data.cells;
-
-                    // 1. Оновлення логів
-                    const logBox = document.getElementById('logBox');
-                    logBox.innerHTML = '';
-                    data.logs.forEach(logText => {
-                        const line = document.createElement('div');
-                        line.className = 'log-line';
-                        if (logText.includes('Додано')) line.classList.add('log-add');
-                        if (logText.includes('Вилучено')) line.classList.add('log-remove');
-                        line.innerText = logText;
-                        logBox.appendChild(line);
-                    });
-
-                    // [ВИПРАВЛЕНО]: Оновлюємо стан відкритої панелі ТІЛЬКИ якщо користувач НЕ пише текст прямо зараз
-                    if (selectedCellElement) {
-                        const activeId = selectedCellElement.getAttribute('data-id');
-
-                        const inputName = document.getElementById('manualName');
-                        const inputBarcode = document.getElementById('manualBarcode');
-
-                        // Перевіряємо, чи користувач зараз тримає фокус на одному з текстових полів
-                        const isUserTyping = (document.activeElement === inputName || document.activeElement === inputBarcode);
-
-                        // Якщо користувач НЕ пише нічого, тоді можна оновлювати панель
-                        if (!isUserTyping) {
-                            renderControlPanel(activeId);
-                        }
-                    }
-
-                    // 2. Оновлення карти
-                    data.cells.forEach(cellData => {
-                        const cellDiv = document.getElementById(`cell-${cellData.id}`);
-                        if (cellDiv) {
-                            if (highlightedCellId && highlightedCellId == cellData.id) return;
-
-                            const tooltip = cellDiv.querySelector('.tooltip');
-                            const addressStr = `<strong>Адреса:</strong> ${cellData.zone}-Р${cellData.row}-П${cellData.shelf}-М${cellData.position}`;
-
-                            if (cellData.is_occupied) {
-                                cellDiv.classList.remove('free');
-                                cellDiv.classList.add('occupied');
-                                if (tooltip && cellData.product) {
-                                    tooltip.innerHTML = `${addressStr}<br><strong>Товар:</strong> ${cellData.product.name}<br><strong>Баркод:</strong> ${cellData.product.barcode}`;
-                                }
-                            } else {
-                                cellDiv.classList.remove('occupied');
-                                cellDiv.classList.add('free');
-                                if (tooltip) {
-                                    tooltip.innerHTML = `${addressStr}<br><span style="color: #2ecc71;">Вільна комірка</span>`;
-                                }
-                            }
-                        }
-                    });
-                })
-                .catch(error => console.error('Помилка оновлення:', error));
-        }
-
-
-        // Ініціалізація першого завантаження
-        updateWarehouseData();
-        setInterval(updateWarehouseData, 3000);
+        window.highlightedCellId = "{{ highlighted_cell_id|default:'null' }}";
     </script>
+    <!-- Підключаємо наш винесений файл логіки JS -->
+    <script src="{% static 'warehouse/script.js' %}"></script>
 </body>
 </html>
